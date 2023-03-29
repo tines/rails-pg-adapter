@@ -1,0 +1,10 @@
+version: "2"
+services:
+  postgres:
+    image: postgres:14.5-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: tines
+      POSTGRES_DB: tines
+      POSTGRES_PASSWORD: tines
