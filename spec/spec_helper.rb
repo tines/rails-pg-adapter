@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "rails_pg_adapter"
+require_relative "../lib/rails-pg-adapter"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
