@@ -41,7 +41,6 @@ RSpec.describe(RailsPgAdapter::Configuration) do
   describe ".failover_patch?" do
     it "returns false" do
       expect(RailsPgAdapter.failover_patch?).to be(false)
-      expect(RailsPgAdapter.enabled?).to be(false)
     end
 
     it "returns true" do
@@ -49,14 +48,12 @@ RSpec.describe(RailsPgAdapter::Configuration) do
         c.add_failover_patch = true
       end
       expect(RailsPgAdapter.failover_patch?).to be(true)
-      expect(RailsPgAdapter.enabled?).to be(true)
     end
   end
 
   describe ".reset_column_information_patch?" do
     it "returns false" do
       expect(RailsPgAdapter.reset_column_information_patch?).to be(false)
-      expect(RailsPgAdapter.enabled?).to be(false)
     end
 
     it "returns true" do
@@ -64,7 +61,6 @@ RSpec.describe(RailsPgAdapter::Configuration) do
         c.add_reset_column_information_patch = true
       end
       expect(RailsPgAdapter.reset_column_information_patch?).to be(true)
-      expect(RailsPgAdapter.enabled?).to be(true)
     end
   end
 end

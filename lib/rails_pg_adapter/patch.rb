@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require "active_record/connection_adapters/postgresql_adapter"
 
 module RailsPgAdapter
   module Patch
@@ -66,10 +67,10 @@ module RailsPgAdapter
 
     def warn(msg)
       return unless defined?(Rails)
-        ::Rails.logger.warn("[RailsPgAdapter::Patch] #{msg}")
-      
+      return if Rails.logger.nil?
+      ::Rails.logger.warn("[RailsPgAdapter::Patch] #{msg}")
     end
   end
 end
 
-ActiveRecord::ConnectionAdapters::PostgreSQLAdapter.prepend(RailsPgAdapter::Patch) if RailsPgAdapter.enabled?
+ActiveRecord::ConnectionAdapters::PostgreSQLAdapter.prepend(RailsPgAdapter::Patch)

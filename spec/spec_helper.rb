@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "active_record/railtie"
+require "rspec/rails"
 require_relative "../lib/rails-pg-adapter"
 
 RSpec.configure do |config|

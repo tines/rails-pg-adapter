@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "active_record"
-require "pry"
-
 class Dummy
   private
 
