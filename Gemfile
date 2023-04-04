@@ -7,6 +7,7 @@ group :development do
   gem "pry"
   gem "rake"
   gem "rspec"
+  gem "rspec-rails"
   gem "rubocop"
   gem "rubocop-rails"
   gem "rubocop-rspec"

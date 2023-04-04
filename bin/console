@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
-require "rails_pg_adapter"
+require "rails-pg-adapter"
 # require "rails_pg_adapter/patch"
 # require "rails_pg_adapter/configuration"
 

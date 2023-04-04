@@ -29,10 +29,6 @@ module RailsPgAdapter
     RailsPgAdapter.configuration.add_reset_column_information_patch || false
   end
 
-  def self.enabled?
-    failover_patch? || reset_column_information_patch?
-  end
-
   def self.reset_configuration
     @configuration = Configuration.new({
       add_failover_patch: false,
