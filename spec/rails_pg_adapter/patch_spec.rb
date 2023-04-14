@@ -73,6 +73,24 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
     end
 
+    it "calls clear_all_connections when a ActiveRecord::ConnectionNotEstablished exception is raised" do
+      msg = "connection is closed"
+      allow_any_instance_of(Dummy).to receive(:exec_no_cache).and_raise(
+        ActiveRecord::ConnectionNotEstablished.new(msg)
+      )
+
+      allow_any_instance_of(Object).to receive(:sleep)
+      expect(ActiveRecord::Base.connection_pool).to receive(:remove)
+      expect_any_instance_of(Dummy).to receive(:disconnect!)
+
+      expect do
+        Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache)
+      end.to raise_error(
+        ActiveRecord::ConnectionNotEstablished,
+        msg
+      )
+    end
+
     it "does not call clear_all_connections when a general exception is raised" do
       allow_any_instance_of(Dummy).to receive(:exec_no_cache).and_raise("Exception")
       expect(ActiveRecord::Base).not_to receive(:clear_all_connections!)
