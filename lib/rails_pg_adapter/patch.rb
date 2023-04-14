@@ -22,13 +22,13 @@ module RailsPgAdapter
 
     def exec_cache(*args)
       super(*args)
-    rescue ::ActiveRecord::StatementInvalid => e
+    rescue ::ActiveRecord::StatementInvalid, ::ActiveRecord::ConnectionNotEstablished => e
       handle_error(e) || raise
     end
 
     def exec_no_cache(*args)
       super(*args)
-    rescue ::ActiveRecord::StatementInvalid => e
+    rescue ::ActiveRecord::StatementInvalid, ::ActiveRecord::ConnectionNotEstablished => e
       handle_error(e) || raise
     end
 
