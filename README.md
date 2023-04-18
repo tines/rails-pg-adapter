@@ -2,16 +2,6 @@
 
 This project allows you to monkey patch `ActiveRecord` (PostgreSQL) and auto-heal applications in production when PostgreSQL database fails over or when a cached column (in `ActiveRecord` schema cache) is removed from the database from a migration in another process.
 
-## How does it work
-
-During a database failover in production, the `ActiveRecord` connection pool can become exhausted as queries are made against the database during the failover process. This can leave the `ActiveRecord` connection pools with stale or bad connections, even after the database has successfully recovered. Recovering from this issue usually requires a rolling restart of the application processes or containers.
-
-`RailsPgAdapter` addresses this problem by resetting the connection pool and re-raises the original exception from an `ActiveRecord` monkey patch. This allows the application to auto-heal from stale connections on its own (after database recovery) when performing queries for a new request, without requiring manual intervention.
-
-Another issue with `ActiveRecord` queries is `PG::UndefinedColumn`, which occurs when an `ActiveRecord` model includes a `SELECT` query with the name of a column that has been dropped from a Rails migration. This can happen even if the column isn't being referenced anywhere in the code. It occurs when a model is using `ignored_columns`, which prompts `ActiveRecord` to perform a dedicated lookup of the allowed columns in a select, such as `SELECT "users".name, "users".template_id...."`, instead of `SELECT "users".*`. When a column like `template_id` is dropped, PostgreSQL throws an undefined column error, which is bubbled up by `ActiveRecord` into `PG::UndefinedColumn`. Recovering from this issue also usually requires a rolling restart of the application processes or containers.
-
-`RailsPgAdapter` solves this second issue by resetting the `ActiveRecord` schema cache and memoized model column information when it detects a `PG::UndefinedColumn` raised from a monkey patch. Resetting the column information forces `ActiveRecord` to refresh its schema cache by loading the table information from the database and no longer reference the dropped column for new queries, without requiring manual intervention.
-
 ## Installation
 
 Install the gem and add to the application's Gemfile by executing:
@@ -27,7 +17,7 @@ If bundler is not being used to manage dependencies, install the gem by executin
 ### Auto healing connections when PostgreSQL database fails over
 
 ```ruby
-# config/initializer/rails_pg_adapter.rb
+# config/initializers/rails_pg_adapter.rb
 
 RailsPgAdapter.configure do |c|
   c.add_failover_patch = true
@@ -36,10 +26,28 @@ end
 
 This will add the monkey patch which resets the `ActiveRecord` connections in the connection pool when the database fails over. The patch will reset the connection and re-raise the error each time it detects that an exception related to a database failover is detected.
 
+### Retrying queries
+
+When the database is failing you can retry queries that are not in a transaction. The gem will perform a back off retry in establishing the connection.
+Once the back off is reached and no connection is found, it will bubble up the exception. Otherwise, the query will be retried with a new connection.
+
+It is an opt-in functionality. You can supply your own back off figures for retries (in seconds) as following:
+
+```ruby
+# config/initializers/rails_pg_adapter.rb
+
+RailsPgAdapter.configure do |c|
+  c.add_failover_patch = true
+  c.reconnect_with_backoff = [0.5, 1, 2, 4, 8, 16] # seconds
+...
+end
+
+```
+
 ### Refresh model column information on the fly after an existing column is dropped
 
 ```ruby
-# config/initializer/rails_pg_adapter.rb
+# config/initializers/rails_pg_adapter.rb
 
 RailsPgAdapter.configure do |c|
   c.add_reset_column_information_patch = true
@@ -47,6 +55,16 @@ end
 ```
 
 This will clear the `ActiveRecord` schema cache and reset the `ActiveRecord` column information memoized on the model. The patch will reset the relevant information and re-raise the error each time it detects that an exception related to a dropped column is raised.
+
+## How does it work
+
+During a database failover in production, the `ActiveRecord` connection pool can become exhausted as queries are made against the database during the failover process. This can leave the `ActiveRecord` connection pools with stale or bad connections, even after the database has successfully recovered. Recovering from this issue usually requires a rolling restart of the application processes or containers.
+
+`RailsPgAdapter` addresses this problem by resetting the connection pool and re-raises the original exception from an `ActiveRecord` monkey patch. This allows the application to auto-heal from stale connections on its own (after database recovery) when performing queries for a new request, without requiring manual intervention.
+
+Another issue with `ActiveRecord` queries is `PG::UndefinedColumn`, which occurs when an `ActiveRecord` model includes a `SELECT` query with the name of a column that has been dropped from a Rails migration. This can happen even if the column isn't being referenced anywhere in the code. It occurs when a model is using `ignored_columns`, which prompts `ActiveRecord` to perform a dedicated lookup of the allowed columns in a select, such as `SELECT "users".name, "users".template_id...."`, instead of `SELECT "users".*`. When a column like `template_id` is dropped, PostgreSQL throws an undefined column error, which is bubbled up by `ActiveRecord` into `PG::UndefinedColumn`. Recovering from this issue also usually requires a rolling restart of the application processes or containers.
+
+`RailsPgAdapter` solves this second issue by resetting the `ActiveRecord` schema cache and memoized model column information when it detects a `PG::UndefinedColumn` raised from a monkey patch. Resetting the column information forces `ActiveRecord` to refresh its schema cache by loading the table information from the database and no longer reference the dropped column for new queries, without requiring manual intervention.
 
 ## Development
 

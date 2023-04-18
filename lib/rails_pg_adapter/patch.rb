@@ -117,9 +117,7 @@ module ActiveRecord
 
             sleep_time = sleep_times.shift
             raise unless sleep_time
-            warn(
-              "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.",
-            )
+            warn( "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.")
             sleep(sleep_time)
             retry
           end
