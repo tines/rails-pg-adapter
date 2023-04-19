@@ -19,6 +19,12 @@ module RailsPgAdapter
     CONNECTION_SCHEMA_ERROR = ["PG::UndefinedColumn"].freeze
     CONNECTION_SCHEMA_RE = /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
+    CONNECTION_READ_ONLY_ERROR = [
+      "read-only",
+      "PG::ReadOnlySqlTransaction",
+    ].freeze
+    CONNECTION_READ_ONLY_ERROR_RE = /#{CONNECTION_READ_ONLY_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
+
     private
 
     def exec_cache(*args)
@@ -43,6 +49,7 @@ module RailsPgAdapter
       return false unless RailsPgAdapter.reconnect_with_backoff?
 
       begin
+        disconnect_and_remove_conn! if read_only_error?(e.message)
         reconnect!
         true
       rescue ::ActiveRecord::ConnectionNotEstablished
@@ -95,6 +102,10 @@ module RailsPgAdapter
         return true
       end
       false
+    end
+
+    def read_only_error?(error_message)
+      CONNECTION_READ_ONLY_ERROR_RE.match?(error_message)
     end
   end
 end
