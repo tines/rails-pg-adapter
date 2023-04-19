@@ -20,6 +20,10 @@ module RailsPgAdapter
     CONNECTION_SCHEMA_RE =
       /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
+    CONNECTION_READ_ONLY_ERROR = %w[PG::ReadOnlySqlTransaction read-only].freeze
+    CONNECTION_READ_ONLY_ERROR_RE =
+      /#{CONNECTION_READ_ONLY_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
+
     private
 
     def exec_cache(*args)
@@ -44,6 +48,7 @@ module RailsPgAdapter
       return false unless RailsPgAdapter.reconnect_with_backoff?
 
       begin
+        disconnect_and_remove_conn! if read_only_error?
         reconnect!
         true
       rescue ::ActiveRecord::ConnectionNotEstablished
@@ -98,6 +103,10 @@ module RailsPgAdapter
         return true
       end
       false
+    end
+
+    def read_only_error?(error_message)
+      CONNECTION_ERROR_RE.match?(error_message)
     end
   end
 end
