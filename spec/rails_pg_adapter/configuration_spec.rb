@@ -7,10 +7,8 @@ RSpec.describe(RailsPgAdapter::Configuration) do
 
   describe "new" do
     it "initializes with the passed attributes" do
-      c = described_class.new({
-        add_failover_patch: true,
-        add_reset_column_information_patch: true,
-      })
+      c =
+        described_class.new({ add_failover_patch: true, add_reset_column_information_patch: true })
 
       expect(c.add_failover_patch).to be(true)
       expect(c.add_reset_column_information_patch).to be(true)
@@ -44,9 +42,7 @@ RSpec.describe(RailsPgAdapter::Configuration) do
     end
 
     it "returns true" do
-      RailsPgAdapter.configure do |c|
-        c.add_failover_patch = true
-      end
+      RailsPgAdapter.configure { |c| c.add_failover_patch = true }
       expect(RailsPgAdapter.failover_patch?).to be(true)
     end
   end
@@ -57,9 +53,7 @@ RSpec.describe(RailsPgAdapter::Configuration) do
     end
 
     it "returns true" do
-      RailsPgAdapter.configure do |c|
-        c.add_reset_column_information_patch = true
-      end
+      RailsPgAdapter.configure { |c| c.add_reset_column_information_patch = true }
       expect(RailsPgAdapter.reset_column_information_patch?).to be(true)
     end
   end

@@ -12,11 +12,14 @@ module RailsPgAdapter
   end
 
   def self.configuration
-    @configuration ||= Configuration.new({
-      add_failover_patch: false,
-      add_reset_column_information_patch: false,
-      reconnect_with_backoff: [],
-    })
+    @configuration ||=
+      Configuration.new(
+        {
+          add_failover_patch: false,
+          add_reset_column_information_patch: false,
+          reconnect_with_backoff: [],
+        },
+      )
   end
 
   def self.configure
@@ -36,10 +39,13 @@ module RailsPgAdapter
   end
 
   def self.reset_configuration
-    @configuration = Configuration.new({
-      add_failover_patch: false,
-      add_reset_column_information_patch: false,
-      reconnect_with_backoff: [],
-    })
+    @configuration =
+      Configuration.new(
+        {
+          add_failover_patch: false,
+          add_reset_column_information_patch: false,
+          reconnect_with_backoff: [],
+        },
+      )
   end
 end

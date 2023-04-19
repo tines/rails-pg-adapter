@@ -1,0 +1,19 @@
+{
+  "trailingComma": "es5",
+  "overrides": [
+    {
+      "files": [
+        "Gemfile",
+        "*.{rb,ru,rake,gemspec}",
+        ".active_record_doctor",
+        ".irbrc",
+        ".pryrc"
+      ],
+      "options": {
+        "printWidth": 100,
+        "rubySingleQuote": false,
+        "rubyArrayLiteral": false
+      }
+    }
+  ]
+}

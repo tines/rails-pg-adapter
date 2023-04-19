@@ -17,7 +17,8 @@ module RailsPgAdapter
     CONNECTION_ERROR_RE = /#{CONNECTION_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
     CONNECTION_SCHEMA_ERROR = ["PG::UndefinedColumn"].freeze
-    CONNECTION_SCHEMA_RE = /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
+    CONNECTION_SCHEMA_RE =
+      /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
     CONNECTION_READ_ONLY_ERROR = [
       "read-only",
@@ -64,7 +65,9 @@ module RailsPgAdapter
         raise(e)
       end
 
-      return unless missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
+      unless missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
+        return
+      end
 
       warn("clearing column information due to #{e} - #{e.message}")
 
@@ -128,7 +131,9 @@ module ActiveRecord
 
             sleep_time = sleep_times.shift
             raise unless sleep_time
-            warn( "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.")
+            warn(
+              "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.",
+            )
             sleep(sleep_time)
             retry
           end

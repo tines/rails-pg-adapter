@@ -19,9 +19,7 @@ If bundler is not being used to manage dependencies, install the gem by executin
 ```ruby
 # config/initializers/rails_pg_adapter.rb
 
-RailsPgAdapter.configure do |c|
-  c.add_failover_patch = true
-end
+RailsPgAdapter.configure { |c| c.add_failover_patch = true }
 ```
 
 This will add the monkey patch which resets the `ActiveRecord` connections in the connection pool when the database fails over. The patch will reset the connection and re-raise the error each time it detects that an exception related to a database failover is detected.
@@ -49,9 +47,7 @@ end
 ```ruby
 # config/initializers/rails_pg_adapter.rb
 
-RailsPgAdapter.configure do |c|
-  c.add_reset_column_information_patch = true
-end
+RailsPgAdapter.configure { |c| c.add_reset_column_information_patch = true }
 ```
 
 This will clear the `ActiveRecord` schema cache and reset the `ActiveRecord` column information memoized on the model. The patch will reset the relevant information and re-raise the error each time it detects that an exception related to a dropped column is raised.
