@@ -12,6 +12,7 @@ module RailsPgAdapter
       "PG::ConnectionBad",
       "the database system is starting up",
       "connection is closed",
+      "could not connect",
     ].freeze
     CONNECTION_ERROR_RE = /#{CONNECTION_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
@@ -23,20 +24,37 @@ module RailsPgAdapter
     def exec_cache(*args)
       super(*args)
     rescue ::ActiveRecord::StatementInvalid, ::ActiveRecord::ConnectionNotEstablished => e
-      handle_error(e) || raise
+      raise unless supported_errors?(e)
+
+      try_reconnect?(e) ? retry : handle_error(e)
     end
 
     def exec_no_cache(*args)
       super(*args)
     rescue ::ActiveRecord::StatementInvalid, ::ActiveRecord::ConnectionNotEstablished => e
-      handle_error(e) || raise
+      raise unless supported_errors?(e)
+
+      try_reconnect?(e) ? retry : handle_error(e)
+    end
+
+    def try_reconnect?(e)
+      return false if in_transaction?
+      return false unless failover_error?(e.message)
+      return false unless RailsPgAdapter.reconnect_with_backoff?
+
+      begin
+        reconnect!
+        true
+      rescue ::ActiveRecord::ConnectionNotEstablished
+        false
+      end
     end
 
     def handle_error(e)
       if failover_error?(e.message) && RailsPgAdapter.failover_patch?
         warn("clearing connections due to #{e} - #{e.message}")
         disconnect_and_remove_conn!
-        raise
+        raise(e)
       end
 
       return unless missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
@@ -70,7 +88,41 @@ module RailsPgAdapter
       return if Rails.logger.nil?
       ::Rails.logger.warn("[RailsPgAdapter::Patch] #{msg}")
     end
+
+    def supported_errors?(e)
+      return true if failover_error?(e.message) && RailsPgAdapter.failover_patch?
+      if missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
+        return true
+      end
+      false
+    end
   end
 end
 
 ActiveRecord::ConnectionAdapters::PostgreSQLAdapter.prepend(RailsPgAdapter::Patch)
+
+# Override new client connection to bake in retries
+module ActiveRecord
+  module ConnectionAdapters
+    class PostgreSQLAdapter
+      class << self
+        old_new_client_method = instance_method(:new_client)
+
+        define_method(:new_client) do |args|
+          sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
+          begin
+            old_new_client_method.bind(self).call(args)
+          rescue ::ActiveRecord::ConnectionNotEstablished => e
+            raise(e) unless RailsPgAdapter.failover_patch? && RailsPgAdapter.reconnect_with_backoff?
+
+            sleep_time = sleep_times.shift
+            raise unless sleep_time
+            warn( "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.")
+            sleep(sleep_time)
+            retry
+          end
+        end
+      end
+    end
+  end
+end
