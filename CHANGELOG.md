@@ -1,4 +1,8 @@
-## [0.1.3] - 2023-04-04
+## [0.1.5] - 2023-04-19
+
+- Retry queries when not in transaction
+
+## [0.1.4] - 2023-04-04
 
 - Rescue and recover from `ActiveRecord::ConnectionNotEstablished`
 
