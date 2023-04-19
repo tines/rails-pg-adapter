@@ -34,6 +34,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
     RailsPgAdapter.configure do |c|
       c.add_failover_patch = true
       c.add_reset_column_information_patch = true
+      c.reconnect_with_backoff = []
     end
   end
 
@@ -78,6 +79,36 @@ RSpec.describe(RailsPgAdapter::Patch) do
       }.to raise_error(
         ActiveRecord::StatementInvalid,
         "PG::UndefinedColumn: ERROR:  column users.template_id does not exist",
+      )
+    end
+
+    it "calls clear_all_connections when a PG::ReadOnlySqlTransaction is retries once and fails" do
+      RailsPgAdapter.configure do |c|
+        c.add_failover_patch = true
+        c.add_reset_column_information_patch = true
+        c.reconnect_with_backoff = [0.5]
+      end
+
+      values = [proc { raise ActiveRecord::StatementInvalid.new(EXCEPTION_MESSAGE) }] # raise error once
+      allow_any_instance_of(Dummy).to receive(
+        :reconnect!,
+      ).and_wrap_original do |original, *args|
+        values.empty? ? original.call(*args) : values.shift.call
+      end
+
+      allow_any_instance_of(Dummy).to receive(:exec_cache).and_raise(
+        ActiveRecord::StatementInvalid.new(EXCEPTION_MESSAGE),
+      )
+
+      allow_any_instance_of(Object).to receive(:sleep)
+      expect(ActiveRecord::Base.connection_pool).to receive(:remove)
+      expect_any_instance_of(Dummy).to receive(:disconnect!)
+
+      expect {
+        Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache)
+      }.to raise_error(
+        ActiveRecord::StatementInvalid,
+        "PG::ReadOnlySqlTransaction: ERROR:  cannot execute UPDATE in a read-only transaction",
       )
     end
   end
@@ -143,6 +174,36 @@ RSpec.describe(RailsPgAdapter::Patch) do
         d.extend(RailsPgAdapter::Patch).send(:exec_no_cache)
         expect(d.reconnect_called).to be(true)
       end.to raise_error(ActiveRecord::ConnectionNotEstablished, msg)
+    end
+
+    it "calls clear_all_connections when a PG::ReadOnlySqlTransaction is retries once and fails" do
+      RailsPgAdapter.configure do |c|
+        c.add_failover_patch = true
+        c.add_reset_column_information_patch = true
+        c.reconnect_with_backoff = [0.5]
+      end
+
+      values = [proc { raise ActiveRecord::StatementInvalid.new(EXCEPTION_MESSAGE) }] # raise error once
+      allow_any_instance_of(Dummy).to receive(
+        :reconnect!,
+      ).and_wrap_original do |original, *args|
+        values.empty? ? original.call(*args) : values.shift.call
+      end
+
+      allow_any_instance_of(Dummy).to receive(:exec_no_cache).and_raise(
+        ActiveRecord::StatementInvalid.new(EXCEPTION_MESSAGE),
+      )
+
+      allow_any_instance_of(Object).to receive(:sleep)
+      expect(ActiveRecord::Base.connection_pool).to receive(:remove)
+      expect_any_instance_of(Dummy).to receive(:disconnect!)
+
+      expect {
+        Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache)
+      }.to raise_error(
+        ActiveRecord::StatementInvalid,
+        "PG::ReadOnlySqlTransaction: ERROR:  cannot execute UPDATE in a read-only transaction",
+      )
     end
 
     it "does not call clear_all_connections when a general exception is raised" do
