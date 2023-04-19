@@ -13,34 +13,55 @@ module RailsPgAdapter
       "the database system is starting up",
       "connection is closed",
       "could not connect",
+      "is not currently accepting connections",
     ].freeze
     CONNECTION_ERROR_RE = /#{CONNECTION_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
     CONNECTION_SCHEMA_ERROR = ["PG::UndefinedColumn"].freeze
     CONNECTION_SCHEMA_RE = /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
-    CONNECTION_READ_ONLY_ERROR = [
-      "read-only",
-      "PG::ReadOnlySqlTransaction",
-    ].freeze
-    CONNECTION_READ_ONLY_ERROR_RE = /#{CONNECTION_READ_ONLY_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
-
     private
 
     def exec_cache(*args)
-      super(*args)
-    rescue ::ActiveRecord::StatementInvalid, ::ActiveRecord::ConnectionNotEstablished => e
-      raise unless supported_errors?(e)
+      sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
+      begin
+        super(*args)
+      rescue ::ActiveRecord::StatementInvalid,
+             ::ActiveRecord::ConnectionNotEstablished,
+             ::ActiveRecord::NoDatabaseError => e
+        raise unless supported_errors?(e)
 
-      try_reconnect?(e) ? retry : handle_error(e)
+        if try_reconnect?(e)
+          sleep_time = sleep_times.shift
+          handle_error(e) unless sleep_time
+          warn("Retry query failed, retrying again in #{sleep_time} sec.")
+          sleep(sleep_time)
+          retry
+        else
+          handle_error(e)
+        end
+      end
     end
 
     def exec_no_cache(*args)
-      super(*args)
-    rescue ::ActiveRecord::StatementInvalid, ::ActiveRecord::ConnectionNotEstablished => e
-      raise unless supported_errors?(e)
+      sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
+      begin
+        super(*args)
+      rescue ::ActiveRecord::StatementInvalid,
+             ::ActiveRecord::ConnectionNotEstablished,
+             ::ActiveRecord::NoDatabaseError => e
+        raise unless supported_errors?(e)
 
-      try_reconnect?(e) ? retry : handle_error(e)
+        if try_reconnect?(e)
+          sleep_time = sleep_times.shift
+          handle_error(e) unless sleep_time
+          warn("Retry query failed, retrying again in #{sleep_time} sec.")
+          sleep(sleep_time)
+          retry
+        else
+          handle_error(e)
+        end
+      end
     end
 
     def try_reconnect?(e)
@@ -49,8 +70,7 @@ module RailsPgAdapter
       return false unless RailsPgAdapter.reconnect_with_backoff?
 
       begin
-        disconnect_and_remove_conn! if read_only_error?(e.message)
-        reconnect!
+        disconnect_and_reload_conn!
         true
       rescue ::ActiveRecord::ConnectionNotEstablished
         false
@@ -60,11 +80,13 @@ module RailsPgAdapter
     def handle_error(e)
       if failover_error?(e.message) && RailsPgAdapter.failover_patch?
         warn("clearing connections due to #{e} - #{e.message}")
-        disconnect_and_remove_conn!
+        disconnect_and_reload_conn!
         raise(e)
       end
 
-      return unless missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
+      unless missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
+        return
+      end
 
       warn("clearing column information due to #{e} - #{e.message}")
 
@@ -80,7 +102,7 @@ module RailsPgAdapter
       CONNECTION_SCHEMA_RE.match?(error_message)
     end
 
-    def disconnect_and_remove_conn!
+    def disconnect_and_reload_conn!
       disconnect!
       ::ActiveRecord::Base.connection_pool.remove(::ActiveRecord::Base.connection)
     end
@@ -103,10 +125,6 @@ module RailsPgAdapter
       end
       false
     end
-
-    def read_only_error?(error_message)
-      CONNECTION_READ_ONLY_ERROR_RE.match?(error_message)
-    end
   end
 end
 
@@ -123,12 +141,14 @@ module ActiveRecord
           sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
           begin
             old_new_client_method.bind(self).call(args)
-          rescue ::ActiveRecord::ConnectionNotEstablished => e
+          rescue ::ActiveRecord::ConnectionNotEstablished, ::ActiveRecord::NoDatabaseError => e
             raise(e) unless RailsPgAdapter.failover_patch? && RailsPgAdapter.reconnect_with_backoff?
 
             sleep_time = sleep_times.shift
             raise unless sleep_time
-            warn( "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.")
+            warn(
+              "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.",
+            )
             sleep(sleep_time)
             retry
           end
