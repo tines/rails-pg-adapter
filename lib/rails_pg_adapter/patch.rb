@@ -70,7 +70,7 @@ module RailsPgAdapter
       return false unless RailsPgAdapter.reconnect_with_backoff?
 
       begin
-        disconnect_and_reload_conn!
+        disconnect_conn!
         true
       rescue ::ActiveRecord::ConnectionNotEstablished
         false
@@ -80,7 +80,7 @@ module RailsPgAdapter
     def handle_error(e)
       if failover_error?(e.message) && RailsPgAdapter.failover_patch?
         warn("clearing connections due to #{e} - #{e.message}")
-        disconnect_and_reload_conn!
+        disconnect_conn!
         raise(e)
       end
 
@@ -102,7 +102,7 @@ module RailsPgAdapter
       CONNECTION_SCHEMA_RE.match?(error_message)
     end
 
-    def disconnect_and_reload_conn!
+    def disconnect_conn!
       disconnect!
       ::ActiveRecord::Base.connection_pool.remove(::ActiveRecord::Base.connection)
     end
@@ -146,9 +146,7 @@ module ActiveRecord
 
             sleep_time = sleep_times.shift
             raise unless sleep_time
-            warn(
-              "Could not establish a connection from new_client, retrying again in #{sleep_time} sec.",
-            )
+            warn("Could not establish a connection from new_client, retrying again in #{sleep_time} sec.")
             sleep(sleep_time)
             retry
           end
