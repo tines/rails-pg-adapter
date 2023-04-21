@@ -1,3 +1,7 @@
+## [0.1.7] - 2023-04-21
+
+- Simplify connection management and introduce upper bound to retries
+
 ## [0.1.6] - 2023-04-19
 
 - Disconnect and remove connection when in read-only
