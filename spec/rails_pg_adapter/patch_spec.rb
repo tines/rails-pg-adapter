@@ -241,7 +241,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       end
 
       expect(PG).to receive(:connect)
-        .and_raise(ActiveRecord::ConnectionNotEstablished)
+        .and_raise(ActiveRecord::ConnectionNotEstablished, "connection is closed")
         .exactly(:twice)
       expect(Object).to receive(:sleep).exactly(:once)
 
@@ -259,7 +259,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
         c.reconnect_with_backoff = [0.5]
       end
 
-      expect(PG).to receive(:connect).and_raise(ActiveRecord::NoDatabaseError).exactly(:twice)
+      expect(PG).to receive(:connect).and_raise(ActiveRecord::NoDatabaseError, "is not currently accepting connections").exactly(:twice)
       expect(Object).to receive(:sleep).exactly(:once)
 
       expect do
