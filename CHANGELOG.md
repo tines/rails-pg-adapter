@@ -1,3 +1,7 @@
+## [0.1.8] - 2023-04-28
+
+- Make retry on ActiveRecord::NoDatabaseError stricter
+
 ## [0.1.7] - 2023-04-21
 
 - Simplify connection management and introduce upper bound to retries
