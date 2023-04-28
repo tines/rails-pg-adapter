@@ -18,37 +18,35 @@ module RailsPgAdapter
     CONNECTION_ERROR_RE = /#{CONNECTION_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
     CONNECTION_SCHEMA_ERROR = ["PG::UndefinedColumn"].freeze
-    CONNECTION_SCHEMA_RE = /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/
-      .freeze
+    CONNECTION_SCHEMA_RE = /#{CONNECTION_SCHEMA_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
     class << self
       def supported_errors?(e)
-        return true if failover_error?(e.message) && RailsPgAdapter.failover_patch?
-        if missing_column_error?(e.message) && RailsPgAdapter.reset_column_information_patch?
-          return true
-        end
+        return true if failover_error?(e.message)
+        return true if missing_column_error?(e.message)
         false
       end
 
       def failover_error?(error_message)
-        CONNECTION_ERROR_RE.match?(error_message)
+        CONNECTION_ERROR_RE.match?(error_message) && ::RailsPgAdapter.failover_patch?
       end
 
       def missing_column_error?(error_message)
-        CONNECTION_SCHEMA_RE.match?(error_message)
+        CONNECTION_SCHEMA_RE.match?(error_message) &&
+          ::RailsPgAdapter.reset_column_information_patch?
       end
     end
 
     private
 
     def exec_cache(*args)
-      sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
+      sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
       begin
         super(*args)
       rescue ::ActiveRecord::StatementInvalid,
              ::ActiveRecord::ConnectionNotEstablished,
              ::ActiveRecord::NoDatabaseError => e
-        raise unless RailsPgAdapter::Patch.supported_errors?(e)
+        raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
 
         if try_reconnect?(e)
           sleep_time = sleep_times.shift
@@ -63,13 +61,13 @@ module RailsPgAdapter
     end
 
     def exec_no_cache(*args)
-      sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
+      sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
       begin
         super(*args)
       rescue ::ActiveRecord::StatementInvalid,
              ::ActiveRecord::ConnectionNotEstablished,
              ::ActiveRecord::NoDatabaseError => e
-        raise unless RailsPgAdapter::Patch.supported_errors?(e)
+        raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
 
         if try_reconnect?(e)
           sleep_time = sleep_times.shift
@@ -85,8 +83,8 @@ module RailsPgAdapter
 
     def try_reconnect?(e)
       return false if in_transaction?
-      return false unless RailsPgAdapter::Patch.failover_error?(e.message)
-      return false unless RailsPgAdapter.reconnect_with_backoff?
+      return false unless ::RailsPgAdapter::Patch.failover_error?(e.message)
+      return false unless ::RailsPgAdapter.reconnect_with_backoff?
 
       begin
         disconnect_conn!
@@ -97,16 +95,13 @@ module RailsPgAdapter
     end
 
     def handle_error(e)
-      if RailsPgAdapter::Patch.failover_error?(e.message) && RailsPgAdapter.failover_patch?
+      if ::RailsPgAdapter::Patch.failover_error?(e.message)
         warn("clearing connections due to #{e} - #{e.message}")
         disconnect_conn!
         raise(e)
       end
 
-      unless RailsPgAdapter::Patch.missing_column_error?(e.message) &&
-               RailsPgAdapter.reset_column_information_patch?
-        return
-      end
+      return unless ::RailsPgAdapter::Patch.missing_column_error?(e.message)
 
       warn("clearing column information due to #{e} - #{e.message}")
 
@@ -127,7 +122,7 @@ module RailsPgAdapter
     def warn(msg)
       return unless defined?(Rails)
       return if Rails.logger.nil?
-      ::Rails.logger.warn("[RailsPgAdapter::Patch] #{msg}")
+      ::Rails.logger.warn("[::RailsPgAdapter::Patch] #{msg}")
     end
   end
 end
@@ -142,12 +137,12 @@ module ActiveRecord
         old_new_client_method = instance_method(:new_client)
 
         define_method(:new_client) do |args|
-          sleep_times = RailsPgAdapter.configuration.reconnect_with_backoff.dup
+          sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
           begin
             old_new_client_method.bind(self).call(args)
           rescue ::ActiveRecord::ConnectionNotEstablished, ::ActiveRecord::NoDatabaseError => e
-            unless RailsPgAdapter::Patch.supported_errors?(e) &&
-                     RailsPgAdapter.reconnect_with_backoff?
+            unless ::RailsPgAdapter::Patch.supported_errors?(e) &&
+                     ::RailsPgAdapter.reconnect_with_backoff?
               raise
             end
 
