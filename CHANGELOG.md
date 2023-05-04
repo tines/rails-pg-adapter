@@ -1,3 +1,7 @@
+## [0.1.10] - 2023-05-04
+
+- Handle Connection refused
+
 ## [0.1.9] - 2023-05-04
 
 - Retry on too many connections error as well
