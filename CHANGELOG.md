@@ -1,3 +1,7 @@
+## [0.1.9] - 2023-05-04
+
+- Retry on too many connections error as well
+
 ## [0.1.8] - 2023-04-28
 
 - Make retry on ActiveRecord::NoDatabaseError stricter
