@@ -14,7 +14,8 @@ module RailsPgAdapter
       "connection is closed",
       "could not connect",
       "is not currently accepting connections",
-      "too many connections"
+      "too many connections",
+      "Connection refused",
     ].freeze
     CONNECTION_ERROR_RE = /#{CONNECTION_ERROR.map { |w| Regexp.escape(w) }.join("|")}/.freeze
 
