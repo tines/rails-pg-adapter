@@ -84,11 +84,13 @@ module RailsPgAdapter
     end
 
     def try_reconnect?(e)
-      return false if in_transaction?
       return false unless ::RailsPgAdapter::Patch.failover_error?(e.message)
       return false unless ::RailsPgAdapter.reconnect_with_backoff?
 
       begin
+        if in_transaction?
+          reset!
+        end
         disconnect_conn!
         true
       rescue ::ActiveRecord::ConnectionNotEstablished
