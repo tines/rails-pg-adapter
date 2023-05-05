@@ -43,6 +43,7 @@ module RailsPgAdapter
 
     def exec_cache(*args)
       sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
+      query, _ = args
       begin
         super(*args)
       rescue ::ActiveRecord::StatementInvalid,
@@ -50,20 +51,19 @@ module RailsPgAdapter
              ::ActiveRecord::NoDatabaseError => e
         raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
 
-        if try_reconnect?(e)
-          sleep_time = sleep_times.shift
-          handle_error(e) unless sleep_time
-          warn("Retry query failed, retrying again in #{sleep_time} sec.")
-          sleep(sleep_time)
-          retry
-        else
-          handle_error(e)
-        end
+        handle_error(e) || raise unless try_reconnect?(e)
+        sleep_time = sleep_times.shift
+        handle_error(e) unless sleep_time
+        warn("Retry query failed, retrying again in #{sleep_time} sec. Retrying: #{query}")
+        sleep(sleep_time)
+        connect
+        retry
       end
     end
 
     def exec_no_cache(*args)
       sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
+      query, _ = args
       begin
         super(*args)
       rescue ::ActiveRecord::StatementInvalid,
@@ -71,26 +71,22 @@ module RailsPgAdapter
              ::ActiveRecord::NoDatabaseError => e
         raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
 
-        if try_reconnect?(e)
-          sleep_time = sleep_times.shift
-          handle_error(e) unless sleep_time
-          warn("Retry query failed, retrying again in #{sleep_time} sec.")
-          sleep(sleep_time)
-          retry
-        else
-          handle_error(e)
-        end
+        handle_error(e) || raise unless try_reconnect?(e)
+        sleep_time = sleep_times.shift
+        handle_error(e) unless sleep_time
+        warn("Retry query failed, retrying again in #{sleep_time} sec. Retrying: #{query}")
+        sleep(sleep_time)
+        connect
+        retry
       end
     end
 
     def try_reconnect?(e)
+      return false if in_transaction?
       return false unless ::RailsPgAdapter::Patch.failover_error?(e.message)
       return false unless ::RailsPgAdapter.reconnect_with_backoff?
 
       begin
-        if in_transaction?
-          reset!
-        end
         disconnect_conn!
         true
       rescue ::ActiveRecord::ConnectionNotEstablished
@@ -102,7 +98,6 @@ module RailsPgAdapter
       if ::RailsPgAdapter::Patch.failover_error?(e.message)
         warn("clearing connections due to #{e} - #{e.message}")
         disconnect_conn!
-        raise(e)
       end
 
       return unless ::RailsPgAdapter::Patch.missing_column_error?(e.message)
