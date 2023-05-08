@@ -1,3 +1,7 @@
+## [0.1.11] - 2023-05-08
+
+- Attempt a re-connect before a retry
+
 ## [0.1.10] - 2023-05-04
 
 - Handle Connection refused
