@@ -50,14 +50,20 @@ module RailsPgAdapter
              ::ActiveRecord::ConnectionNotEstablished,
              ::ActiveRecord::NoDatabaseError => e
         raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
+        handle_schema_cache_error(e)
+        handle_activerecord_error(e)
+        raise unless try_reconnect?(e)
 
-        handle_error(e) unless try_reconnect?(e)
         sleep_time = sleep_times.shift
-        handle_error(e) unless sleep_time
-        warn("Retry query failed, retrying again in #{sleep_time} sec. Retrying: #{query}")
-        sleep(sleep_time)
-        connect
-        retry
+        if sleep_time
+          warn("Retry query failed, retrying again in #{sleep_time} sec. Retrying: #{query}")
+          sleep(sleep_time)
+          connect
+          retry
+        else
+          handle_activerecord_error(e)
+          raise
+        end
       end
     end
 
@@ -70,14 +76,20 @@ module RailsPgAdapter
              ::ActiveRecord::ConnectionNotEstablished,
              ::ActiveRecord::NoDatabaseError => e
         raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
+        handle_schema_cache_error(e)
+        handle_activerecord_error(e)
+        raise unless try_reconnect?(e)
 
-        handle_error(e) unless try_reconnect?(e)
         sleep_time = sleep_times.shift
-        handle_error(e) unless sleep_time
-        warn("Retry query failed, retrying again in #{sleep_time} sec. Retrying: #{query}")
-        sleep(sleep_time)
-        connect
-        retry
+        if sleep_time
+          warn("Retry query failed, retrying again in #{sleep_time} sec. Retrying: #{query}")
+          sleep(sleep_time)
+          connect
+          retry
+        else
+          handle_activerecord_error(e)
+          raise
+        end
       end
     end
 
@@ -85,22 +97,17 @@ module RailsPgAdapter
       return false if in_transaction?
       return false unless ::RailsPgAdapter::Patch.failover_error?(e.message)
       return false unless ::RailsPgAdapter.reconnect_with_backoff?
-
-      begin
-        disconnect_conn!
-        true
-      rescue ::ActiveRecord::ConnectionNotEstablished
-        false
-      end
+      true
     end
 
-    def handle_error(e)
-      if ::RailsPgAdapter::Patch.failover_error?(e.message)
-        warn("clearing connections due to #{e} - #{e.message}")
-        disconnect_conn!
-      end
+    def handle_activerecord_error(e)
+      return unless ::RailsPgAdapter::Patch.failover_error?(e.message)
+      warn("clearing connections due to #{e} - #{e.message}")
+      disconnect_conn!
+    end
 
-      raise(e) unless ::RailsPgAdapter::Patch.missing_column_error?(e.message)
+    def handle_schema_cache_error(e)
+      return unless ::RailsPgAdapter::Patch.missing_column_error?(e.message)
       warn("clearing column information due to #{e} - #{e.message}")
 
       internal_clear_schema_cache!
