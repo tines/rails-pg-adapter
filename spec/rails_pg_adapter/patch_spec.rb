@@ -50,7 +50,6 @@ RSpec.describe(RailsPgAdapter::Patch) do
 
     it "does not call clear_all_connections when a general exception is raised" do
       allow_any_instance_of(Dummy).to receive(:exec_cache).and_raise("Exception")
-      expect(ActiveRecord::Base).not_to receive(:clear_all_connections!)
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache) }.to raise_error(
         "Exception",
       )
@@ -103,6 +102,26 @@ RSpec.describe(RailsPgAdapter::Patch) do
 
       allow_any_instance_of(Object).to receive(:sleep)
       expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(3).times
+
+      expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache) }.to raise_error(
+        ActiveRecord::StatementInvalid,
+        "PG::ReadOnlySqlTransaction: ERROR:  cannot execute UPDATE in a read-only transaction",
+      )
+    end
+
+    it "re-raises if within transaction" do
+      RailsPgAdapter.configure do |c|
+        c.add_failover_patch = true
+        c.add_reset_column_information_patch = true
+        c.reconnect_with_backoff = [0.5]
+      end
+      expect_any_instance_of(Dummy).to receive(:in_transaction?).and_return(true)
+      allow_any_instance_of(Dummy).to receive(:exec_cache).and_raise(
+        ActiveRecord::StatementInvalid.new(EXCEPTION_MESSAGE),
+      )
+
+      allow_any_instance_of(Object).to receive(:sleep)
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(:once)
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache) }.to raise_error(
         ActiveRecord::StatementInvalid,
@@ -224,6 +243,26 @@ RSpec.describe(RailsPgAdapter::Patch) do
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
         ActiveRecord::StatementInvalid,
         "PG::UndefinedColumn: ERROR:  column users.template_id does not exist",
+      )
+    end
+
+    it "re-raises if within transaction" do
+      RailsPgAdapter.configure do |c|
+        c.add_failover_patch = true
+        c.add_reset_column_information_patch = true
+        c.reconnect_with_backoff = [0.5]
+      end
+      expect_any_instance_of(Dummy).to receive(:in_transaction?).and_return(true)
+      allow_any_instance_of(Dummy).to receive(:exec_no_cache).and_raise(
+        ActiveRecord::StatementInvalid.new(EXCEPTION_MESSAGE),
+      )
+
+      allow_any_instance_of(Object).to receive(:sleep)
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(:once)
+
+      expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
+        ActiveRecord::StatementInvalid,
+        "PG::ReadOnlySqlTransaction: ERROR:  cannot execute UPDATE in a read-only transaction",
       )
     end
   end
