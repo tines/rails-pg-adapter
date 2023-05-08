@@ -1,3 +1,7 @@
+## [0.1.12] - 2023-05-08
+
+- Slight refactor and reduce multiple disconnect attempts
+
 ## [0.1.11] - 2023-05-08
 
 - Attempt a re-connect before a retry
