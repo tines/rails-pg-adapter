@@ -103,7 +103,7 @@ module RailsPgAdapter
     def handle_activerecord_error(e)
       return unless ::RailsPgAdapter::Patch.failover_error?(e.message)
       warn("clearing connections due to #{e} - #{e.message}")
-      disconnect_conn!
+      throw_away!
     end
 
     def handle_schema_cache_error(e)
@@ -112,11 +112,6 @@ module RailsPgAdapter
 
       internal_clear_schema_cache!
       raise(e)
-    end
-
-    def disconnect_conn!
-      disconnect!
-      ::ActiveRecord::Base.connection_pool.remove(::ActiveRecord::Base.connection)
     end
 
     def internal_clear_schema_cache!

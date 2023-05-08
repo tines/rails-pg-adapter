@@ -12,7 +12,7 @@ class Dummy
 
   def exec_no_cache; end
 
-  def disconnect!; end
+  def throw_away!; end
 
   def connect; end
 
@@ -41,8 +41,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove)
-      expect_any_instance_of(Dummy).to receive(:disconnect!)
+      expect_any_instance_of(Dummy).to receive(:throw_away!)
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache) }.to raise_error(
         ActiveRecord::StatementInvalid,
         "PG::ReadOnlySqlTransaction: ERROR:  cannot execute UPDATE in a read-only transaction",
@@ -83,8 +82,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
-      expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(3).times
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache) }.to raise_error(
         ActiveRecord::NoDatabaseError,
@@ -104,8 +102,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
-      expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(3).times
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_cache) }.to raise_error(
         ActiveRecord::StatementInvalid,
@@ -121,8 +118,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove)
-      expect_any_instance_of(Dummy).to receive(:disconnect!)
+      expect_any_instance_of(Dummy).to receive(:throw_away!)
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
         ActiveRecord::StatementInvalid,
@@ -137,8 +133,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove)
-      expect_any_instance_of(Dummy).to receive(:disconnect!)
+      expect_any_instance_of(Dummy).to receive(:throw_away!)
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
         ActiveRecord::ConnectionNotEstablished,
         msg,
@@ -158,8 +153,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
-      expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(3).times
       expect_any_instance_of(Dummy).to receive(:connect).once
 
       d = Dummy.new
@@ -182,8 +176,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
-      expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(3).times
       expect_any_instance_of(Dummy).to receive(:connect).once
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
@@ -204,8 +197,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       )
 
       allow_any_instance_of(Object).to receive(:sleep)
-      expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
-      expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:throw_away!).exactly(3).times
       expect_any_instance_of(Dummy).to receive(:connect).once
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
