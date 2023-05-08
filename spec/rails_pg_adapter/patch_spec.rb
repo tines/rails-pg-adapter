@@ -14,6 +14,8 @@ class Dummy
 
   def disconnect!; end
 
+  def connect; end
+
   def in_transaction?
     false
   end
@@ -137,7 +139,6 @@ RSpec.describe(RailsPgAdapter::Patch) do
       allow_any_instance_of(Object).to receive(:sleep)
       expect(ActiveRecord::Base.connection_pool).to receive(:remove)
       expect_any_instance_of(Dummy).to receive(:disconnect!)
-
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
         ActiveRecord::ConnectionNotEstablished,
         msg,
@@ -159,6 +160,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       allow_any_instance_of(Object).to receive(:sleep)
       expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
       expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:connect).once
 
       d = Dummy.new
       expect do
@@ -182,6 +184,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       allow_any_instance_of(Object).to receive(:sleep)
       expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
       expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:connect).once
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
         ActiveRecord::NoDatabaseError,
@@ -203,6 +206,7 @@ RSpec.describe(RailsPgAdapter::Patch) do
       allow_any_instance_of(Object).to receive(:sleep)
       expect(ActiveRecord::Base.connection_pool).to receive(:remove).exactly(3).times
       expect_any_instance_of(Dummy).to receive(:disconnect!).exactly(3).times
+      expect_any_instance_of(Dummy).to receive(:connect).once
 
       expect { Dummy.new.extend(RailsPgAdapter::Patch).send(:exec_no_cache) }.to raise_error(
         ActiveRecord::StatementInvalid,
