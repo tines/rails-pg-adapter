@@ -44,6 +44,7 @@ module RailsPgAdapter
     def exec_cache(*args)
       sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
       query, _ = args
+      within_transaction = in_transaction? # capture in_transaction? state before retries
       begin
         super(*args)
       rescue ::ActiveRecord::StatementInvalid,
@@ -52,6 +53,7 @@ module RailsPgAdapter
         raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
         handle_schema_cache_error(e)
         handle_activerecord_error(e)
+        raise if within_transaction
         raise unless try_reconnect?(e)
 
         sleep_time = sleep_times.shift
@@ -70,6 +72,7 @@ module RailsPgAdapter
     def exec_no_cache(*args)
       sleep_times = ::RailsPgAdapter.configuration.reconnect_with_backoff.dup
       query, _ = args
+      within_transaction = in_transaction? # capture in_transaction? state before retries
       begin
         super(*args)
       rescue ::ActiveRecord::StatementInvalid,
@@ -78,6 +81,7 @@ module RailsPgAdapter
         raise unless ::RailsPgAdapter::Patch.supported_errors?(e)
         handle_schema_cache_error(e)
         handle_activerecord_error(e)
+        raise if within_transaction
         raise unless try_reconnect?(e)
 
         sleep_time = sleep_times.shift
@@ -103,7 +107,7 @@ module RailsPgAdapter
     def handle_activerecord_error(e)
       return unless ::RailsPgAdapter::Patch.failover_error?(e.message)
       warn("clearing connections due to #{e} - #{e.message}")
-      disconnect_conn!
+      throw_away!
     end
 
     def handle_schema_cache_error(e)
@@ -112,11 +116,6 @@ module RailsPgAdapter
 
       internal_clear_schema_cache!
       raise(e)
-    end
-
-    def disconnect_conn!
-      disconnect!
-      ::ActiveRecord::Base.connection_pool.remove(::ActiveRecord::Base.connection)
     end
 
     def internal_clear_schema_cache!
