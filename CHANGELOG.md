@@ -1,3 +1,7 @@
+## [0.1.13] - 2023-05-09
+
+- Use throw_away! instead and capture state of transaction and re-raise accordingly
+
 ## [0.1.12] - 2023-05-08
 
 - Slight refactor and reduce multiple disconnect attempts
