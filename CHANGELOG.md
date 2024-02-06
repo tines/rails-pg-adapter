@@ -1,3 +1,7 @@
+## [0.1.14] - 2024-02-06
+
+- Capture the database system is in recovery mode error
+
 ## [0.1.13] - 2023-05-09
 
 - Use throw_away! instead and capture state of transaction and re-raise accordingly
